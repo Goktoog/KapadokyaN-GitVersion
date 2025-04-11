@@ -9,7 +9,7 @@ public class DoorInteraction : MonoBehaviour
 
     private void Start()
     {
-        interactText.SetActive(false); // Başlangıçta kapalı
+        interactText.SetActive(false); // Başlangıçta kapalı IsTrigger ile açılacak
     }
 
     private void Update()
