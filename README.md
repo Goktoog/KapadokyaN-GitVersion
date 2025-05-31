@@ -2,7 +2,12 @@
 
 **KapadokyaN is a 3D tourism simulation game that allows players to explore iconic historical and natural landmarks of the Cappadocia region in Turkey. Built with Unity and modeled in Blender for realistic environments. (⚠️ This is a DEMO of my project  just because it's too big for github)**
 
+![alt text](image-2.png)
+
+![alt text](image-6.png)
+
 **This project is one I started quite a while ago, and as you explore different maps, you'll notice the evolution of my level design and modeling skills over time. The same applies to scripting and UI logic; however, since I eventually started reusing improved scripts and UI elements in older scenes, the difference might not be as noticeable. In short, this project has been a significant part of my Unity learning journey.**
+![alt text](image-3.png)
 
 
 #### Character Control
@@ -10,18 +15,34 @@
 - Semi-physics jumping using Rigidbody
 - Smooth animation transitions (run/walk)
 
+![alt text](image.png)
+
+
+![alt text](image-1.png)
+
 #### Interaction System
 - Interact with objects 
 - Dynamic footstep sounds depending on ground material
 - UI hints show when interaction is available
 
+![alt text](image-4.png)
+
+
+
+
 #### Teleport System
 - Triggered teleport between specific zones
 - Resets Rigidbody velocity to prevent post-teleport glitches
 
+
+
 #### Book Reading System
 - Press `E` near a book to read it
 - Text shown in a UI panel, exit with `ESC`
+
+![alt text](image-5.png)
+
+![alt text](image-7.png)
 
 #### Mini-Games
 - Pottery restoration mini-game
