@@ -7,11 +7,25 @@ public class PlayerMovement : MonoBehaviour
     public Camera playerCamera;
     public Animator animator;
 
+    [Header("Surface Footstep Sounds")]
+    public AudioClip[] pavementClips;
+    public AudioClip[] undergrowthClips;
+    public AudioClip[] parquetClips;
+    public AudioClip[] linoleumClips;
+    public AudioClip[] ironClips;
+    public AudioClip[] defaultFootstepSounds;
+    public AudioSource audioSource;
+
     [Header("Movement Settings")]
     public float walkSpeed = 4f;
     public float runSpeed = 7f;
-    public float jumpForce = 6f;
-    public float gravityMultiplier = 2f;
+    public float jumpForce = 6f; // Jump force
+    public float gravityMultiplier = 1.5f;
+    public Transform groundCheck;
+
+    [Header("Step Climb Settings")]
+    public float stepHeight = 0.3f;
+    public float stepSmooth = 0.1f;
 
     [Header("Look Settings")]
     public float lookSpeed = 2f;
@@ -34,24 +48,32 @@ public class PlayerMovement : MonoBehaviour
     {
         HandleMouseLook();
         HandleJump();
-        UpdateAnimator(); // her frame animasyonu kontrol eder
+        UpdateAnimator();
     }
 
     void FixedUpdate()
     {
         isGrounded = CheckIfGrounded();
         HandleMovement();
+        StepClimb(); // Merdiven tirmanmasi icin cagiriyorum.
+
+        if (!isGrounded)
+        {
+            // Ekstra yercekimi uygulamak icin karakter ucmasin.
+            Vector3 extraGravity = (Physics.gravity * gravityMultiplier) - Physics.gravity;
+            rb.AddForce(extraGravity, ForceMode.Acceleration);
+        }
     }
 
     void HandleMouseLook()
     {
         rotationX += -Input.GetAxis("Mouse Y") * lookSpeed;
-    rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
-    playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
+        rotationX = Mathf.Clamp(rotationX, -lookXLimit, lookXLimit);
+        playerCamera.transform.localRotation = Quaternion.Euler(rotationX, 0, 0);
 
-    float yRotation = Input.GetAxis("Mouse X") * lookSpeed;
-    Quaternion deltaRotation = Quaternion.Euler(0f, yRotation, 0f);
-    rb.MoveRotation(rb.rotation * deltaRotation);
+        float yRotation = Input.GetAxis("Mouse X") * lookSpeed;
+        Quaternion deltaRotation = Quaternion.Euler(0f, yRotation, 0f);
+        rb.MoveRotation(rb.rotation * deltaRotation);
     }
 
     void HandleMovement()
@@ -61,49 +83,139 @@ public class PlayerMovement : MonoBehaviour
 
         Vector3 move = transform.right * moveX + transform.forward * moveZ;
         float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : walkSpeed;
-        //float speed = move.magnitude;
-        animator.SetFloat("Speed", speed);
 
         Vector3 velocity = new Vector3(move.x * speed, rb.velocity.y, move.z * speed);
         rb.velocity = velocity;
     }
 
-    void HandleJump()
+    bool CheckIfGrounded()
     {
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        float rayDistance = 0.15f;
+        Vector3 origin = groundCheck != null ? groundCheck.position : transform.position + Vector3.up * 0.1f;
+        RaycastHit hit;
+        if (Physics.Raycast(origin, Vector3.down, out hit, rayDistance))
         {
-            rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z); // düşüş momentumunu sıfırla
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
 
-    bool CheckIfGrounded()
+    public void Footstep()
     {
-    float rayLength = capsuleCol.height / 10f + 0.1f;
-    Vector3 origin = transform.position + Vector3.up * 0.1f;
+        if (!isGrounded) return;
+        Ray ray = new Ray(transform.position + Vector3.up * 0.1f, Vector3.down);
+        if (Physics.Raycast(ray, out RaycastHit hit, 2f))
+        {
+            string surfaceTag = hit.collider.tag;
+            AudioClip[] selectedClips = null;
+            switch (surfaceTag)
+            {
+                case "Pavement":
+                    selectedClips = pavementClips;
+                    break;
+                case "Undergrowth":
+                    selectedClips = undergrowthClips;
+                    break;
+                case "Parquet":
+                    selectedClips = parquetClips;
+                    break;
+                case "Linoleum":
+                    selectedClips = linoleumClips;
+                    break;
+                case "Iron":
+                    selectedClips = ironClips;
+                    break;
+                default:
+                    selectedClips = defaultFootstepSounds; // if mesh is not working then use default sound
+                    break;
+            }
+            if (selectedClips != null && selectedClips.Length > 0)
+            {
+                int index = Random.Range(0, selectedClips.Length);
+                audioSource.PlayOneShot(selectedClips[index]);
+            }
+        }
+    }
 
-    // Ortadan ışın
-    bool centerHit = Physics.Raycast(origin, Vector3.down, rayLength);
+    void StepClimb() // cok kompleks oldu
+    {
+        float rayDistance = 0.5f;
+        float lowerRayHeight = 0.1f;
+        float upperRayHeight = stepHeight;
 
-    // Sağ ve sol kenarlardan da kontrol
-    bool sideHit1 = Physics.Raycast(origin + transform.right * 0.3f, Vector3.down, rayLength);
-    bool sideHit2 = Physics.Raycast(origin - transform.right * 0.3f, Vector3.down, rayLength);
+        Vector3 originLower = transform.position + Vector3.up * lowerRayHeight;
+        Vector3 originUpper = transform.position + Vector3.up * upperRayHeight;
 
-    // Debug çizgileri (isteğe bağlı)
-    Debug.DrawRay(origin, Vector3.down * rayLength, centerHit ? Color.green : Color.red);
-    Debug.DrawRay(origin + transform.right * 0.3f, Vector3.down * rayLength, sideHit1 ? Color.green : Color.red);
-    Debug.DrawRay(origin - transform.right * 0.3f, Vector3.down * rayLength, sideHit2 ? Color.green : Color.red);
+        RaycastHit hitLower;
+        RaycastHit hitUpper;
 
-    return centerHit || sideHit1 || sideHit2;
+        // Sol
+        Vector3 dirLeft = transform.forward - transform.right * 0.25f;
+        if (Physics.Raycast(originLower + dirLeft * 0.2f, transform.forward, out hitLower, rayDistance))
+        {
+            if (!Physics.Raycast(originUpper + dirLeft * 0.2f, transform.forward, out hitUpper, rayDistance))
+            {
+                rb.position += new Vector3(0f, stepSmooth, 0f);
+            }
+        }
+
+        // Orta
+        if (Physics.Raycast(originLower, transform.forward, out hitLower, rayDistance))
+        {
+            if (!Physics.Raycast(originUpper, transform.forward, out hitUpper, rayDistance))
+            {
+                rb.position += new Vector3(0f, stepSmooth, 0f);
+            }
+        }
+
+        // Sag
+        Vector3 dirRight = transform.forward + transform.right * 0.25f;
+        if (Physics.Raycast(originLower + dirRight * 0.2f, transform.forward, out hitLower, rayDistance))
+        {
+            if (!Physics.Raycast(originUpper + dirRight * 0.2f, transform.forward, out hitUpper, rayDistance))
+            {
+                rb.position += new Vector3(0f, stepSmooth, 0f);
+            }
+        }
     }
 
     void UpdateAnimator()
     {
-        float horizontal = Input.GetAxis("Horizontal");
-        float vertical = Input.GetAxis("Vertical");
+        float moveX = Input.GetAxis("Horizontal");
+        float moveZ = Input.GetAxis("Vertical");
 
-        bool isMoving = horizontal != 0 || vertical != 0;
+        bool isMoving = moveX != 0 || moveZ != 0;
         animator.SetBool("isRunning", isMoving);
+
+        float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : walkSpeed;
+        animator.SetFloat("Speed", isMoving ? speed : 0f);
     }
 
+    void HandleJump()//Buraya bir de debug koycam �al���yor mu diye kontrol etmek i�in
+    {
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
+            animator.SetTrigger("Jump"); // sadece animasyonu ba�lat
+        }
+
+    }
+
+
+    public void PerformJump()
+    {
+        rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
+        rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (groundCheck != null)// groundCheck null de�ilse
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(groundCheck.position, groundCheck.position + Vector3.down * 0.15f);
+        }
+    }
 }
